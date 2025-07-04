@@ -23,11 +23,6 @@ LangChain to connect everything together
 #Other Req Lib to Install
 import os
 import pandas as pd
-from langchain_core.documents import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import FAISS
-from langchain.chains import RetrievalQA
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
 #Set Up Google Gemini API Key
 os.environ["GOOGLE_API_KEY"] = "AIzaSyC_4gVKqEBPcCKc6W5lAFlI9Z1HjrlA2PY"
