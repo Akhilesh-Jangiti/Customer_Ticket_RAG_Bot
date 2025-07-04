@@ -22,39 +22,32 @@ LangChain to connect everything together
 
 #Other Req Lib to Install
 import os
-import pandas as pd
-
 import streamlit as st
-
-# Load API key from Streamlit secrets
-GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
-
-#Initialize Embedding Model and LLM (Gemini)
-embedding = GoogleGenerativeAIEmbeddings(
-    model="models/embedding-001",
-    google_api_key=GOOGLE_API_KEY
-)
-
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    temperature=0.3,
-    google_api_key=GOOGLE_API_KEY
-)
-
-#Read the CSV
 import pandas as pd
+from langchain_core.documents import Document
+from langchain_community.vectorstores import FAISS
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains import RetrievalQA
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
+# 🔐 Load Gemini API key from Streamlit secrets
+try:
+    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+except Exception:
+    st.error("❌ Please set GOOGLE_API_KEY in Streamlit Secrets.")
+    st.stop()
+
+# 🔁 Load Data
 df = pd.read_csv("customer_support_tickets.csv")
-df[['Ticket ID', 'Ticket Subject', 'Ticket Description']].head()
 
-#Convert Tickets into LangChain Documents
+# 📄 Convert tickets to documents
 real_documents = []
 for _, row in df.iterrows():
     text = f"Ticket Subject: {row['Ticket Subject']}\nTicket Description: {row['Ticket Description']}"
     doc = Document(page_content=text, metadata={"ticket_id": row["Ticket ID"]})
     real_documents.append(doc)
 
-#Add Sample FAQs (Optional but Important)
+# ➕ Add sample FAQs
 sample_faqs = [
     {
         "Ticket ID": "FAQ001",
@@ -72,119 +65,46 @@ sample_faqs = [
         "Ticket Description": "We offer a full refund within 14 days of delivery if the product is returned in original condition."
     }
 ]
+faq_documents = [Document(page_content=f"Ticket Subject: {faq['Ticket Subject']}\nTicket Description: {faq['Ticket Description']}", metadata={"ticket_id": faq["Ticket ID"]}) for faq in sample_faqs]
 
-faq_documents = []
-for faq in sample_faqs:
-    text = f"Ticket Subject: {faq['Ticket Subject']}\nTicket Description: {faq['Ticket Description']}"
-    doc = Document(page_content=text, metadata={"ticket_id": faq["Ticket ID"]})
-    faq_documents.append(doc)
-
-#Combine Real + FAQ Documents
+# 🔗 Combine documents
 all_documents = real_documents + faq_documents
 
-#Chunk the Text for Better Retrieval
+# ✂️ Chunking
 splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 all_chunks = splitter.split_documents(all_documents)
 
-#Build the FAISS Vector Index
-vectorstore = FAISS.from_documents(all_chunks, embedding)
+# 🌐 Init Gemini Embedding + LLM
+embedding = GoogleGenerativeAIEmbeddings(
+    model="models/embedding-001",
+    google_api_key=GOOGLE_API_KEY
+)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.0-flash",
+    temperature=0.3,
+    google_api_key=GOOGLE_API_KEY
+)
 
-#Build the RetrievalQA Chain
+# 🧠 Vector Store + RetrievalQA
+vectorstore = FAISS.from_documents(all_chunks, embedding)
 qa_chain = RetrievalQA.from_llm(
     llm=llm,
     retriever=vectorstore.as_retriever(search_type="similarity", k=3),
     return_source_documents=True
 )
 
-#Ask a Question:
-query = "How do I update my shipping address for a recent order?"
-result = qa_chain({"query": query})
+# 🚀 Streamlit UI
+st.title("🤖 Customer Support RAG Chatbot (Gemini + FAISS)")
+user_query = st.text_input("Ask a support question:")
 
-#Display the Answer & Sources
-print("💬 Answer:\n", result["result"])
-
-print("\n📚 Sources:")
-for doc in result["source_documents"]:
-    print("-", doc.metadata)
-
-"""**Customer Support RAG Bot with a Gradio Chatbot UI**"""
-
-#Complete Backend Setup (FAISS + Gemini + RAG)
-#import os
-#import pandas as pd
-#from langchain.schema import Document
-#from langchain.text_splitter import RecursiveCharacterTextSplitter
-#from langchain.vectorstores import FAISS
-#from langchain.chains import RetrievalQA
-#from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-
-# ✅ Step 1: Set API key
-#os.environ["GOOGLE_API_KEY"] = "your_gemini_api_key"
-#GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]
-
-# ✅ Step 2: Init models
-#embedding = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=GOOGLE_API_KEY)
-#llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.3, google_api_key=GOOGLE_API_KEY)
-
-# ✅ Step 3: Load dataset
-#df = pd.read_csv("customer_support_tickets.csv")
-
-# ✅ Step 4: Real documents
-#real_documents = []
-#for _, row in df.iterrows():
-#    text = f"Ticket Subject: {row['Ticket Subject']}\nTicket Description: {row['Ticket Description']}"
-#    real_documents.append(Document(page_content=text, metadata={"ticket_id": row["Ticket ID"]}))
-
-# ✅ Step 5: Optional FAQs
-#sample_faqs = [
-#    {
-#        "Ticket ID": "FAQ001",
-#        "Ticket Subject": "How to update shipping address?",
-#        "Ticket Description": "Log in to your account → Orders → Edit Shipping Info. If already shipped, contact support."
-#    },
-#]
-#faq_documents = [Document(page_content=f"Ticket Subject: {faq['Ticket Subject']}\nTicket Description: {faq['Ticket Description']}", metadata={"ticket_id": faq["Ticket ID"]}) for faq in sample_faqs]
-
-# ✅ Step 6: Combine + Chunk
-#all_documents = real_documents + faq_documents
-#splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-#all_chunks = splitter.split_documents(all_documents)
-
-# ✅ Step 7: Create vector index
-#vectorstore = FAISS.from_documents(all_chunks, embedding)
-
-# ✅ Step 8: Create RetrievalQA Chain
-#qa_chain = RetrievalQA.from_llm(
-#    llm=llm,
-#    retriever=vectorstore.as_retriever(search_type="similarity", k=3),
-#    return_source_documents=True
-#)
-
-#Add Gradio Chatbot UI
-import gradio as gr
-
-def chatbot_response(user_input):
+if user_query:
     try:
-        result = qa_chain({"query": user_input})
-        response = result["result"]
+        result = qa_chain({"query": user_query})
+        st.markdown("### 💬 Answer")
+        st.write(result["result"])
 
-        sources = "\n\n📚 Sources:\n" + "\n".join(
-            [f"- {doc.metadata['ticket_id']}" for doc in result["source_documents"]]
-        )
-        return response + sources
+        st.markdown("### 📚 Sources")
+        for doc in result["source_documents"]:
+            st.write(f"- Ticket ID: {doc.metadata['ticket_id']}")
     except Exception as e:
-        return f"❌ Error: {str(e)}"
-
-with gr.Blocks() as demo:
-    gr.Markdown("## 🤖 Customer Support RAG Chatbot (Gemini + FAISS)")
-    chatbot = gr.Chatbot(type="messages")  # ✅ fixed deprecated tuple warning
-    txt = gr.Textbox(placeholder="Ask a support question and press enter...")
-
-    def respond(user_message, history):
-        answer = chatbot_response(user_message)
-        history = history + [{"role": "user", "content": user_message}, {"role": "assistant", "content": answer}]
-        return history, ""
-
-    txt.submit(respond, [txt, chatbot], [chatbot, txt])
-
-demo.launch()
+        st.error(f"❌ Error: {str(e)}")
