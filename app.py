@@ -19,9 +19,6 @@ LangChain to connect everything together
 """
 
 #Install Req Libraries
-!pip install -q langchain langchain-community langchain-core faiss-cpu tiktoken
-!pip install google-ai-generativelanguage==0.6.15
-!pip install langchain-google-genai
 
 #Other Req Lib to Install
 import os
