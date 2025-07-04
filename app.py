@@ -24,10 +24,10 @@ LangChain to connect everything together
 import os
 import pandas as pd
 
-#Set Up Google Gemini API Key
-os.environ["GOOGLE_API_KEY"] = "AIzaSyC_4gVKqEBPcCKc6W5lAFlI9Z1HjrlA2PY"
+import streamlit as st
 
-GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"] #For Further Usage
+# Load API key from Streamlit secrets
+GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 
 #Initialize Embedding Model and LLM (Gemini)
 embedding = GoogleGenerativeAIEmbeddings(
