@@ -22,32 +22,41 @@ LangChain to connect everything together
 
 #Other Req Lib to Install
 import os
-import streamlit as st
 import pandas as pd
-from langchain_core.documents import Document
+import streamlit as st
+import gradio as gr
+
+from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 
-# 🔐 Load Gemini API key from Streamlit secrets
-try:
-    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
-except Exception:
-    st.error("❌ Please set GOOGLE_API_KEY in Streamlit Secrets.")
-    st.stop()
+# ✅ Load Google API key from Streamlit secrets
+GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 
-# 🔁 Load Data
+# ✅ Initialize Gemini models
+embedding = GoogleGenerativeAIEmbeddings(
+    model="models/embedding-001",
+    google_api_key=GOOGLE_API_KEY
+)
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",  # use gemini-1.5-flash or gemini-1.5-pro
+    temperature=0.3,
+    google_api_key=GOOGLE_API_KEY
+)
+
+# ✅ Load your support ticket dataset
 df = pd.read_csv("customer_support_tickets.csv")
 
-# 📄 Convert tickets to documents
 real_documents = []
 for _, row in df.iterrows():
     text = f"Ticket Subject: {row['Ticket Subject']}\nTicket Description: {row['Ticket Description']}"
     doc = Document(page_content=text, metadata={"ticket_id": row["Ticket ID"]})
     real_documents.append(doc)
 
-# ➕ Add sample FAQs
+# ✅ Optional: Add some sample FAQs to improve RAG quality
 sample_faqs = [
     {
         "Ticket ID": "FAQ001",
@@ -65,46 +74,54 @@ sample_faqs = [
         "Ticket Description": "We offer a full refund within 14 days of delivery if the product is returned in original condition."
     }
 ]
-faq_documents = [Document(page_content=f"Ticket Subject: {faq['Ticket Subject']}\nTicket Description: {faq['Ticket Description']}", metadata={"ticket_id": faq["Ticket ID"]}) for faq in sample_faqs]
 
-# 🔗 Combine documents
+faq_documents = []
+for faq in sample_faqs:
+    text = f"Ticket Subject: {faq['Ticket Subject']}\nTicket Description: {faq['Ticket Description']}"
+    doc = Document(page_content=text, metadata={"ticket_id": faq["Ticket ID"]})
+    faq_documents.append(doc)
+
+# ✅ Combine real tickets and FAQs
 all_documents = real_documents + faq_documents
 
-# ✂️ Chunking
+# ✅ Chunk the documents for better embeddings
 splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 all_chunks = splitter.split_documents(all_documents)
 
-# 🌐 Init Gemini Embedding + LLM
-embedding = GoogleGenerativeAIEmbeddings(
-    model="models/embedding-001",
-    google_api_key=GOOGLE_API_KEY
-)
-llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
-    temperature=0.3,
-    google_api_key=GOOGLE_API_KEY
-)
+# ✅ Filter out empty or too-long chunks (to avoid Gemini embedding failure)
+clean_chunks = [
+    doc for doc in all_chunks
+    if doc.page_content.strip() != "" and len(doc.page_content.strip()) < 1500
+]
 
-# 🧠 Vector Store + RetrievalQA
-vectorstore = FAISS.from_documents(all_chunks, embedding)
+# ✅ Build the vector store
+vectorstore = FAISS.from_documents(clean_chunks, embedding)
+
+# ✅ Create the RAG chain
 qa_chain = RetrievalQA.from_llm(
     llm=llm,
     retriever=vectorstore.as_retriever(search_type="similarity", k=3),
     return_source_documents=True
 )
 
-# 🚀 Streamlit UI
-st.title("🤖 Customer Support RAG Chatbot (Gemini + FAISS)")
-user_query = st.text_input("Ask a support question:")
-
-if user_query:
+# ✅ Define chatbot logic
+def chatbot_response(user_input):
     try:
-        result = qa_chain({"query": user_query})
-        st.markdown("### 💬 Answer")
-        st.write(result["result"])
-
-        st.markdown("### 📚 Sources")
-        for doc in result["source_documents"]:
-            st.write(f"- Ticket ID: {doc.metadata['ticket_id']}")
+        result = qa_chain({"query": user_input})
+        response = result["result"]
+        sources = "\n\n📚 Sources:\n" + "\n".join(
+            [f"- {doc.metadata['ticket_id']}" for doc in result["source_documents"]]
+        )
+        return response + sources
     except Exception as e:
-        st.error(f"❌ Error: {str(e)}")
+        return f"❌ Error: {str(e)}"
+
+# ✅ Gradio chatbot UI
+with gr.Blocks() as demo:
+    gr.Markdown("## 🤖 Customer Support RAG Chatbot (Gemini + FAISS)")
+    chatbot = gr.Chatbot(type="messages")
+    txt = gr.Textbox(placeholder="Ask a support question and press enter...")
+
+    def respond(user_message, history):
+        answer = chatbot_response(user_message)
+        history = history + [{"role": "user", "cont]()
