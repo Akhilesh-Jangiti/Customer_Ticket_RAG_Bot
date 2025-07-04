@@ -1,0 +1,9 @@
+streamlit
+pandas
+langchain==0.1.16
+langchain-core==0.1.40
+langchain-community==0.0.24
+faiss-cpu
+tiktoken
+google-ai-generativelanguage==0.6.15
+langchain-google-genai
