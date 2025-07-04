@@ -23,7 +23,7 @@ LangChain to connect everything together
 #Other Req Lib to Install
 import os
 import pandas as pd
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain.chains import RetrievalQA
