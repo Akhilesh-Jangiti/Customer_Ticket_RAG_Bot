@@ -41,10 +41,6 @@ llm = ChatGoogleGenerativeAI(
     google_api_key=GOOGLE_API_KEY
 )
 
-#Load the Dataset
-from google.colab import files
-uploaded = files.upload()
-
 #Read the CSV
 import pandas as pd
 
