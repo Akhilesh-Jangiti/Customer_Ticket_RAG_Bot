@@ -3,7 +3,7 @@ pandas
 langchain==0.1.16
 langchain-core==0.1.40
 langchain-community==0.0.24
-faiss-cpu
+langchain-google-genai==0.0.9
+faiss-cpu==1.7.4
 tiktoken
 google-ai-generativelanguage==0.6.15
-langchain-google-genai
