@@ -123,5 +123,9 @@ with gr.Blocks() as demo:
     txt = gr.Textbox(placeholder="Ask a support question and press enter...")
 
     def respond(user_message, history):
-        answer = chatbot_response(user_message)
-        history = history + [{"role": "user", "cont]()
+    answer = chatbot_response(user_message)
+    history = history + [
+        {"role": "user", "content": user_message},
+        {"role": "assistant", "content": answer}
+    ]
+    return history, ""
